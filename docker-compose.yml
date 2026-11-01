@@ -1,0 +1,14 @@
+services:
+  blood-donor-app:
+    image: webdevops/php-nginx:8.2
+    container_name: blood-donor-app
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8999:80"
+    volumes:
+      - ./:/app
+    environment:
+      - WEB_DOCUMENT_ROOT=/app
+      - PHP_DISPLAY_ERRORS=1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
