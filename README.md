@@ -1,153 +1,94 @@
-# WhatsApp Bulk Broadcaster & Outreach Manager (with Anti-Ban Architecture)
+# আনঅফিসিয়াল হোয়াটসঅ্যাপ ব্রডকাস্ট ও আউটরিচ গাইড (Unofficial WhatsApp Broadcast)
 
-A lightweight, high-performance, single-page web dashboard designed for targeted WhatsApp outreach, emergency broadcasts, and contact management using **Evolution API** and direct **WhatsApp Web/Desktop** integration.
-
-This project was built to solve the challenges of **high-volume cold messaging**, **duplicate phone numbers**, **account suspension risks**, and **real-time delivery tracking** without requiring heavy database engines like MySQL or PostgreSQL.
+নন-অফিসিয়াল হোয়াটসঅ্যাপ এপিআই (যেমন: Evolution API, Baileys, WPPConnect ইত্যাদি) ব্যবহার করে বাল্ক মেসেজিং, ক্যাম্পেইন বা জরুরি আউটরিচ পরিচালনা করার অভিজ্ঞতা, প্রযুক্তিগত আর্কিটেকচার, অ্যাকাউন্ট ব্যান হওয়ার কারণ এবং সুরক্ষার জন্য সম্পূর্ণ দিকনির্দেশনা।
 
 ---
 
-## 📌 Features & Architecture
+## 📌 ১. সিস্টেমের কার্যপ্রণালী ও বৈশিষ্ট্যসমূহ (System Overview)
 
-* **Zero-Database (File-Based Engine):** Uses clean, structured JSON storage (`donors.json`, `history.json`), making it ultra-fast, zero-maintenance, and easy to backup or migrate.
-* **Docker Ready:** Built-in Docker & Docker Compose setup (`webdevops/php-nginx:8.2`) for instant one-command deployment on any Linux VPS or server.
-* **PIN Authentication:** Secure session-based lock screen to prevent unauthorized access when exposed to a public IP/domain.
-* **Smart Phone Normalization & Deduplication:** Cleans non-digit characters and normalizes numbers using last 10-digit matching (`017...`, `+88017...`, `88017...`) to strictly eliminate duplicate contacts during runtime and CSV imports.
-* **CSV Bulk Importer:** Upload external contacts directly from CSV with auto-detection, column mapping, and duplicate filtering.
-* **Hybrid Messaging Engine:**
-  * **Automated API Mode:** Background automated sending through Evolution API with live HTTP status feedback.
-  * **Manual Click-to-Chat Mode:** One-click launch into official **WhatsApp Web** or **WhatsApp Desktop** (`wa.me` URI) with pre-filled, customized messages.
-* **Interactive Status Management:**
-  * Real-time progress bar and delivery stats.
-  * Clickable status badges to easily toggle between `Pending`, `Sent`, and `No WhatsApp` states.
-  * Auto-save message templates in browser LocalStorage.
+একটি সফল ও ঝামেলাহীন আউটরিচ ইঞ্জিন পরিচালনা করার জন্য যে বিষয়গুলো অন্তর্ভুক্ত থাকা প্রয়োজন:
+
+* **ডাটাবেজমুক্ত লাইটওয়েট স্ট্রাকচার (Zero-Database):** ভারী কোনো SQL ডাটাবেজ ছাড়া সরাসরি স্ট্রাকচার্ড JSON ফাইল (`donors.json`, `history.json`) দিয়ে দ্রুত ডেটা রিড/রাইট ও স্ট্যাটাস ট্র্যাকিং করা যায়।
+* **ডকার ডিপ্লয়মেন্ট (Docker Ready):** পিএইচপি ও এনগিনক্সের প্রি-বিল্ট কন্টেইনার দিয়ে যেকোনো লিনাক্স VPS সার্ভারে মাত্র এক কমান্ডে চালু করা সম্ভব।
+* **পিন ভিত্তিক নিরাপত্তা (PIN Protection):** ড্যাশবোর্ড যেন পাবলিক আইপিতে সুরক্ষিত থাকে, সেজন্য সেশন ভিত্তিক পাসকোড/পিন লক স্ক্রিন ব্যবহার করা।
+* **স্মার্ট ডুপ্লিকেট ফিল্টারিং (Duplicate Protection):** বিভিন্ন ফরম্যাটের নম্বর (`017...`, `+88017...`, `88017...`) থেকে স্বয়ংক্রিয়ভাবে মূল ১০ ডিজিট মিলিয়ে ডুপ্লিকেট নম্বর বাদ দেওয়া।
+* **হাইব্রিড মোড (API + Manual Chat):**
+  * **স্বয়ংক্রিয় মোড (API Mode):** Evolution API-এর মাধ্যমে ব্যাকগ্রাউন্ডে অটোমেটিক মেসেজ পাঠানো।
+  * **ম্যানুয়াল মোড (Click-to-Chat):** এক ক্লিকে অফিসিয়াল **WhatsApp Web** বা **Desktop App** (`wa.me`) ওপেন করে সরাসরি নিরাপদে মেসেজ পাঠানো।
 
 ---
 
-## 🛡️ Anti-Ban Protections Implemented (Code Level)
+## 🛡️ ২. অ্যাকাউন্ট ব্যান প্রতিরোধে ব্যবহৃত সুরক্ষাব্যবস্থা (Anti-Ban Protections)
 
-When conducting outreach via reverse-engineered protocols (e.g., Baileys / Evolution API), WhatsApp's automated anti-spam AI is the primary bottleneck. This system incorporates **5 layers of defensive architecture**:
+নন-অফিসিয়াল হোয়াটসঅ্যাপ এপিআই ব্যবহার করার সময় মেটা (Meta/WhatsApp)-এর অ্যান্টি-স্প্যাম অ্যালগরিদম ফাঁকি দিতে সিস্টেমে নিচের ৫টি সুরক্ষা স্তর প্রয়োগ করা উচিত:
 
-1. **Pre-Validation / Availability Check (Zero Undelivered Penalty):**
-   * Before firing a message, the system queries the WhatsApp server to confirm if the destination number has an active WhatsApp account.
-   * Numbers without WhatsApp are automatically skipped, avoiding the immediate spam-score penalty associated with messaging non-existent accounts.
-2. **Human-like Randomized Interval Delay:**
-   * Instead of a static timer (e.g., sending every 3 seconds), each message is separated by a customizable **random delay (e.g., 6 to 15 seconds)** to mimic human typing and sending habits.
-3. **Message Spintax & Variation (Digital Hash Randomization):**
-   * Identical strings broadcasted across multiple chats are flagged rapidly by Meta's hash-matching algorithms.
-   * The system randomizes opening greetings and injects dynamic recipient attributes (such as Name, Source Website, Organization) to ensure every outgoing payload produces a unique digital fingerprint.
-4. **Typing Simulation Presence:**
-   * Injects a presence simulation delay (`delay: 1200ms`) before dispatching payloads, making the remote connection report a "typing..." state to WhatsApp servers.
-5. **Batch Segmentation & Real-Time Abort:**
-   * Filter contacts by source or category to send in small batches.
-   * Real-time **"Pause / Stop"** control allows instant termination if anomalies or rate-limits are detected.
+1. **হোয়াটসঅ্যাপ প্রি-ভ্যালিডেশন (Zero Undelivered Penalty):**  
+   মেসেজ পাঠানোর আগেই এপিআই দিয়ে চেক করা নম্বরটিতে আদৌ হোয়াটসঅ্যাপ খোলা আছে কি না। হোয়াটসঅ্যাপ না থাকলে মেসেজ স্কিপ করা হয়, কারণ অস্তিত্বহীন নম্বরে বারবার মেসেজ পাঠালে হোয়াটসঅ্যাপ প্রেরকের অ্যাকাউন্ট দ্রুত ফ্ল্যাগ করে দেয়।
+2. **মানুষের মতো র‍্যান্ডম বিরতি (Human-like Random Delay):**  
+   রোবটের মতো নির্দিষ্ট সময় পর পর না পাঠিয়ে, প্রতি মেসেজের মাঝে **১৫ থেকে ৩৫ সেকেন্ডের র‍্যান্ডম ডিলে (Random Interval)** রাখা।
+3. **মেসেজ ভ্যারিয়েশন ও স্পিনট্যাক্স (Message Variation):**  
+   একই হুবহু মেসেজ বারবার পাঠালে মেটার হ্যাশ-ম্যাচিং অ্যালগরিদম স্প্যাম ধরে ফেলে। তাই প্রতি মেসেজের শুরুর সম্ভাষণ পরিবর্তন করা এবং ডাইনামিক ভ্যারিয়েবল (প্রাপকের নাম, এলাকা বা সূত্র) ব্যবহার করে প্রতিটি মেসেজের ডিজিটাল হ্যাশ আলাদা করা।
+4. **টাইপিং সিমুলেশন (Typing Presence):**  
+   মেসেজ শুট করার ঠিক ১-২ সেকেন্ড আগে ব্যবহারকারী টাইপ করছেন (`composing/typing`) এমন সিগন্যাল সার্ভারে পাঠানো।
+5. **ছোট ব্যাচে সেন্ডিং ও ইমার্জেন্সি স্টপ:**  
+   একটানা বড় সংখ্যায় না পাঠিয়ে ছোট ছোট ব্যাচে (১০-১৫ জন করে) ভাগ করে পাঠানো এবং যেকোনো সন্দেহ হলে সাথে সাথে সেন্ডিং পজ/বন্ধ করার সুবিধা রাখা।
 
 ---
 
-## ⚠️ Anti-Ban Failure Analysis (Why Unofficial API Bots Still Get Banned)
+## ⚠️ ৩. সব সুরক্ষার পরেও কেন অ্যাকাউন্ট ব্যান হয়? (Root Cause Analysis)
 
-Even with robust code-level protections, automated messaging on unverified WhatsApp numbers carries inherent risks. Understanding why bans occur is critical for any team building bulk outreach tools:
+কোড লেভেলে সব ধরনের প্রটেকশন থাকার পরেও নন-অফিসিয়াল ক্লায়েন্টে অ্যাকাউন্ট ব্যান হতে পারে। এর মূল কারণগুলো নিচে ব্যাখ্যা করা হলো:
 
 ```
-[Outreach Campaign]
+[আউটরিচ বা ক্যাম্পেইন শুরু]
        │
-       ├──► High Volume + Unknown Contacts (Cold Audience)
+       ├──► অপরিচিত নম্বরে মেসেজ (প্রাপকের ফোনে প্রেরকের নম্বর সেভ নেই)
        │        │
-       │        └──► Zero Contact Book Reciprocity (Number not saved by recipient)
+       │        └──► একমুখী চ্যাট (১ম ঘণ্টায় প্রচুর মেসেজ আউটগোয়িং, কিন্তু কোনো রিপ্লাই নেই)
        │
-       ├──► Zero Bidirectional Traffic (100 messages sent, 0 replies received in 1st hour)
+       ├──► প্রাপক দ্বারা 'Report Spam' বা 'Block' বাটন প্রেস
        │
-       ├──► User Block / Report Buttons (1-2 reports trigger immediate auto-ban)
-       │
-       └──► Reverse-Engineered Socket Traffic (Meta fingerprinting unofficial clients)
+       └──► মেটা কর্তৃক নন-অফিসিয়াল ওয়েব-সকেট সিগনেচার শনাক্ত
                 │
                 ▼
-       [ACCOUNT SUSPENDED / BANNED]
+       [হোয়াটসঅ্যাপ অ্যাকাউন্ট ব্যান / রেস্ট্রিক্ট]
 ```
 
-### Key Technical Causes:
-1. **Unilateral Cold Traffic (Zero Reciprocity):**
-   * When an account sends 50+ messages to recipients who do not have the sender saved in their address book, WhatsApp's heuristic filter flags the activity as unsolicited outreach.
-   * If there is no incoming dialogue (bidirectional response) within the first hour of sending, the trust score drops exponentially.
-2. **User "Block & Report" Actions:**
-   * WhatsApp prominently displays **"Block"** and **"Report Spam"** buttons when receiving messages from an unknown sender.
-   * A single report from 1-2 users within a short window is often enough to trigger an automatic algorithmic suspension.
-3. **Account Age & Warm-up History:**
-   * New SIM cards, recently registered accounts, or dormant numbers with little organic history lack the "Trust Score" required for bulk communication.
-4. **Unofficial WebSockets (Protocol Fingerprinting):**
-   * Libraries like Baileys emulate WhatsApp Web. Meta continuously patches socket headers and behavior signatures to detect and sever automated sessions.
+### কারিগরি কারণসমূহ:
+1. **একমুখী কোল্ড ট্রাফিক (Zero Bidirectional Chat):**  
+   যাদের মেসেজ পাঠানো হচ্ছে, তাদের ফোনে প্রেরকের নম্বর সেভ না থাকলে মেটা সেটিকে 'কোল্ড আউটরিচ' হিসেবে বিবেচনা করে। প্রথম ১ ঘণ্টার মধ্যে যদি অনেকগুলো মেসেজ যায় কিন্তু অপর পাশ থেকে কোনো রিপ্লাই না আসে, মেটার সিস্টেম সেটিকে তাৎক্ষণিকভাবে বাল্ক স্প্যামিং হিসেবে চিহ্নিত করে।
+2. **ব্যবহারকারীর 'Report & Block' অ্যাকশন:**  
+   অপরিচিত নম্বর থেকে মেসেজ গেলে হোয়াটসঅ্যাপ চ্যাটের উপরে বড় করে **"Report"** এবং **"Block"** বাটন দেখায়। ১০-২০ জনের মধ্যে মাত্র ১-২ জনও যদি 'Report' বাটনে চাপ দেয়, সাথে সাথে ওই নম্বরটি অ্যালগরিদমিক ব্যানের শিকার হয়।
+3. **অ্যাকাউন্ট ওয়ার্ম-আপের অভাব (Lack of Warm-up):**  
+   নতুন সিম বা যে নম্বরে আগে থেকে প্রতিদিন প্রচুর সাধারণ ইনকামিং-আউটগোয়িং চ্যাটের দীর্ঘ ইতিহাস নেই, সেই অ্যাকাউন্ট দিয়ে হঠাৎ ৫০+ মেসেজ পাঠালে তা মেটার এআই সিস্টেমে হাই-রিস্ক হিসেবে ধরা পড়ে।
+4. **নন-অফিসিয়াল ওয়েব-সকেট প্রোটোকল (Protocol Fingerprinting):**  
+   Evolution API বা Baileys মেটার অফিসিয়াল ক্লাউড এপিআই নয়, বরং ওয়েব সকেট এমুলেটর। মেটা প্রতিনিয়ত তাদের ওয়েব সকেট সিগনেচার আপডেট করে অটোমেটেড বট ক্লায়েন্টদের ধরে ফেলে।
 
 ---
 
-## 🚀 Golden Rules for Safe Outreach (Production Checklist)
+## 🚀 ৪. ভবিষ্যতে নিরাপদে কাজ করার জন্য চেকলিস্ট (Production Checklist)
 
-To minimize suspension risks for any future marketing, alert, or emergency broadcast project, adhere to these guidelines:
+ভবিষ্যতে যেকোনো আউটরিচ বা জরুরি ব্রডকাস্ট চালানোর সময় অবশ্যই নিচের নিয়মগুলো মেনে চলা উচিত:
 
-* [ ] **Substantial Delay Windows:** Never use intervals below 15 seconds for cold contacts. Ideal range: **20 to 60 seconds** with random jitter.
-* [ ] **Micro-Batches with Cool-down Periods:** Limit runs to **15–25 messages per session**, followed by a **2 to 3-hour cooling-off window**.
-* [ ] **Warm-Up Your Numbers First:** Use numbers that are at least 3–6 months old and have a steady history of bidirectional daily messaging with real users.
-* [ ] **Interactive Hook Messages:** Avoid sending long paragraphs in the first message. Use a short, polite query (e.g., *"Hello [Name], are you available for a quick question?"*) to encourage a reply. Once the user replies, subsequent messages are treated as consensual chat.
-* [ ] **Use the Manual Web/Desktop Chat Fallback:** When delivering high-priority messages, leverage the dashboard's **`Chat`** button. Launching through official WhatsApp Web/Desktop completely eliminates API socket fingerprinting risks.
-* [ ] **Official Meta Cloud API for Large Volumes:** For enterprise scale (>500 messages/day), always use the official **WhatsApp Business Platform / Cloud API** with approved message templates.
-
----
-
-## 🛠️ Tech Stack
-
-* **Backend:** PHP 8.2+
-* **Frontend:** Bootstrap 5.3, Bootstrap Icons, Google Fonts (Hind Siliguri / Segoe UI), Vanilla JavaScript
-* **Database:** Native Flat-File JSON (`donors.json`, `history.json`, `config.json`)
-* **Integrations:** Evolution API (REST), WhatsApp Web/Desktop URI Scheme
-* **Container:** Docker, Docker Compose, Nginx
+* [ ] **বিরতির সময় বাড়ানো:** অপরিচিত নম্বরে পাঠানোর সময় প্রতি মেসেজের মাঝে ন্যূনতম **২০ থেকে ৪৫ সেকেন্ড** বিরতি দিন।
+* [ ] **ছোট ব্যাচ ও দীর্ঘ বিরতি:** একবারে সর্বোচ্চ **১৫–২০টি** মেসেজ পাঠান, এরপর অন্তত **২–৩ ঘণ্টা** সম্পূর্ণ বিরতি নিন।
+* [ ] **ওয়ার্ম-আপ করা অ্যাকাউন্ট:** অন্তত ৩-৬ মাস পুরনো এবং নিয়মিত কথা বলা হয় এমন সচল নম্বর ব্যবহার করুন।
+* [ ] **প্রথম মেসেজে বড় লেখা পরিহার:** প্রথম মেসেজেই সম্পূর্ণ বিবরণ না দিয়ে ছোট ও ভদ্র সম্ভাষণ দিয়ে প্রশ্ন করুন (যেমন: *"আসসালামু আলাইকুম ভাই, জরুরি একটা প্রয়োজনে কথা বলা যাবে?"*)—যাতে প্রাপক আগে রিপ্লাই দেয়। প্রাপক একবার রিপ্লাই দিলে মেটা সেটিকে বৈধ চ্যাট হিসেবে গণ্য করে।
+* [ ] **ম্যানুয়াল চ্যাট অপশন ব্যবহার:** সবচেয়ে নিরাপদ উপায় হলো অফিসিয়াল WhatsApp Web বা Desktop App (`wa.me`) লিঙ্ক দিয়ে সরাসরি ম্যানুয়ালি পাঠানো। এতে এপিআই সনাক্তকরণ ও ব্যানের ঝুঁকি থাকে না।
+* [ ] **বড় ক্যাম্পেইনে অফিসিয়াল এপিআই:** শত শত বা হাজারো মেসেজ পাঠানোর প্রয়োজন হলে নন-অফিসিয়াল পথ ছেড়ে সরাসরি মেটার অনুমোদিত **WhatsApp Business Cloud API** ব্যবহার করুন।
 
 ---
 
-## ⚙️ Quick Start (Local or VPS)
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/<your-username>/whatsapp-broadcast-manager.git
-cd whatsapp-broadcast-manager
-```
-
-### 2. Configure Settings
-Review `config.json` (or configure via the Web UI Settings Modal):
-```json
-{
-    "evolution_url": "https://your-evolution-api.com",
-    "api_key": "YourSecretApiKey",
-    "instance_name": "MainInstance",
-    "sender_phone": "+8801XXXXXXXXX",
-    "min_delay": 15,
-    "max_delay": 35
-}
-```
-
-### 3. Launch with Docker Compose
-```bash
-docker compose up -d
-```
-
-### 4. Access the Dashboard
-Open your browser at:
-```
-http://<your-server-ip>:8999
-```
-* **Default Security PIN:** `7530` *(can be modified in `api.php`)*
-
----
-
-## ⚖️ গুরুত্বপূর্ণ সতর্কবার্তা ও ডিসক্লেইমার (Important Disclaimer)
+## ⚖️ ৫. গুরুত্বপূর্ণ সতর্কবার্তা ও ডিসক্লেইমার (Important Disclaimer)
 
 > **⚠️ নোট ও বাস্তব সত্যতা:**  
-> এই রিপোজিটরিতে উল্লেখিত সকল অ্যান্টি-ব্যান কৌশল, র‍্যান্ডম ডিলে এবং সুরক্ষা ব্যবস্থা মেনে চললে হোয়াটসঅ্যাপ অ্যাকাউন্ট ব্যান বা রেস্ট্রিক্ট হওয়ার **ঝুঁকি বহুলাংশে কমে আসে—তবে এটি কোনো অবস্থাতেই ১০০% নিশ্চয়তা (No Guarantee) প্রদান করে না।**  
+> এই গাইডে উল্লেখিত সকল অ্যান্টি-ব্যান কৌশল, র‍্যান্ডম ডিলে এবং সুরক্ষা ব্যবস্থা মেনে চললে হোয়াটসঅ্যাপ অ্যাকাউন্ট ব্যান বা রেস্ট্রিক্ট হওয়ার **ঝুঁকি অনেক কমে আসে—তবে এটি কোনো অবস্থাতেই ১০০% গ্যারান্টি প্রদান করে না।**  
 > 
-> মেটা (Meta/WhatsApp) তাদের স্প্যাম ডিটেকশন অ্যালগরিদম, হিউরিস্টিক ফিল্টার এবং নিরাপত্তা নীতিমালা প্রতিনিয়ত ও নীরবে আপডেট করে থাকে। যেকোনো নন-অফিসিয়াল এপিআই (Unofficial WhatsApp API / WebSockets) দিয়ে অপরিচিত নম্বরে বাল্ক মেসেজ পাঠালে সবসময়ই অ্যাকাউন্টের ওপর ঝুঁকি বজায় থাকে।
+> মেটা (Meta/WhatsApp) তাদের স্প্যাম ডিটেকশন অ্যালগরিদম, হিউরিস্টিক ফিল্টার এবং ব্যবহারের নীতিমালা প্রতিনিয়ত ও নীরবে আপডেট করে থাকে। যেকোনো নন-অফিসিয়াল এপিআই দিয়ে অপরিচিত নম্বরে বাল্ক মেসেজ পাঠালে সবসময়ই অ্যাকাউন্টের ওপর ঝুঁকি বজায় থাকে।  
 > 
-> **পরামর্শ:**  
-> * আপনার মূল ব্যক্তিগত বা প্রাইমারি বিজনেস নম্বর দিয়ে কখনো কোল্ড আউটরিচ বা বাল্ক ব্রডকাস্ট চালাবেন না।  
-> * শতভাগ ঝুঁকিমুক্ত ও অফিশিয়াল ব্যবহারের জন্য মেটার অনুমোদিত **WhatsApp Business Cloud API (Official)** ব্যবহার করার পরামর্শ দেওয়া হচ্ছে।
+> **পরামর্শ:** আপনার ব্যক্তিগত বা মূল্যবান প্রাইমারি বিজনেস নম্বর দিয়ে কখনো নন-অফিসিয়াল আউটরিচ চালাবেন না। শতভাগ নিরাপদ থাকতে মেটার অফিসিয়াল **WhatsApp Cloud API** ব্যবহার করার পরামর্শ দেওয়া হচ্ছে।
 
 ---
 
-## 📄 License
-This project is open-source and available under the [MIT License](LICENSE).
+## 📄 লাইসেন্স (License)
+এই গাইড ও রিসোর্সটি সম্পূর্ণ উন্মুক্ত এবং [MIT License](LICENSE)-এর অধীনে প্রকাশিত।
